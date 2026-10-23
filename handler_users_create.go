@@ -25,13 +25,13 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 	reqBody := requestBody{}
 	err := decoder.Decode(&reqBody)
 	if err != nil {
-		respondWithError(w, 400, "Unable to decode JSON")
+		respondWithError(w, http.StatusInternalServerError, "Unable to decode JSON")
 		return
 	}
 
 	user, err := cfg.dbQueries.CreateUser(r.Context(), reqBody.Email)
 	if err != nil {
-		respondWithError(w, 400, fmt.Sprintf("Unable to create user. Error %v", err))
+		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Unable to create user. Error %v", err))
 		return
 	}
 
@@ -41,5 +41,5 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 		UpdatedAt: user.UpdatedAt,
 		Email:     user.Email,
 	}
-	respondWithJSON(w, 201, resBody)
+	respondWithJSON(w, http.StatusCreated, resBody)
 }

@@ -45,11 +45,11 @@ func (cfg *apiConfig) handlerChirps(w http.ResponseWriter, r *http.Request) {
 	reqBody := requestBody{}
 	err := decoder.Decode(&reqBody)
 	if err != nil {
-		respondWithError(w, 500, "Something went wrong")
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
 		return
 	}
 	if len(reqBody.Body) > 140 {
-		respondWithError(w, 400, "Chirp is too long")
+		respondWithError(w, http.StatusBadRequest, "Chirp is too long")
 		return
 	}
 	censureMsg := censureWords(reqBody.Body)
@@ -60,7 +60,7 @@ func (cfg *apiConfig) handlerChirps(w http.ResponseWriter, r *http.Request) {
 	}
 	chirp, err := cfg.dbQueries.CreateChirp(r.Context(), chirpParam)
 	if err != nil {
-		respondWithError(w, 500, "Something went wrong")
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
 		return
 	}
 
@@ -72,5 +72,5 @@ func (cfg *apiConfig) handlerChirps(w http.ResponseWriter, r *http.Request) {
 		UserID:    chirp.UserID,
 	}
 
-	respondWithJSON(w, 201, resBody)
+	respondWithJSON(w, http.StatusCreated, resBody)
 }
