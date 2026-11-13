@@ -16,6 +16,7 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 	dbQueries      *database.Queries
 	platform       string
+	token          string
 }
 
 func main() {
@@ -30,6 +31,7 @@ func main() {
 	apiCfg := apiConfig{
 		dbQueries: dbQueries,
 		platform:  os.Getenv("PLATFORM"),
+		token:     os.Getenv("TOKEN"),
 	}
 
 	mux := http.NewServeMux()
@@ -42,6 +44,7 @@ func main() {
 	mux.HandleFunc("POST /api/chirps", apiCfg.handlerChirps)
 	mux.HandleFunc("GET /api/chirps", apiCfg.handlerGetAllChirps)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.handlerGetChirps)
+	mux.HandleFunc("POST /api/login", apiCfg.handlerLogin)
 
 	s := &http.Server{
 		Addr:    ":8080",

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bootdev_chirpy/internal/auth"
 	"bootdev_chirpy/internal/database"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -36,31 +38,43 @@ func censureWords(msg string) (censuredMsg string) {
 }
 
 func (cfg *apiConfig) handlerChirps(w http.ResponseWriter, r *http.Request) {
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Token missing in the Headers.")
+		return
+	}
+
+	userID, err := auth.ValidateJWT(token, cfg.token)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, fmt.Sprintf("Could not validate the token. got err: %v", err))
+		return
+	}
+
 	type requestBody struct {
-		UserID uuid.UUID `json:"user_id"`
-		Body   string    `json:"body"`
+		Body string `json:"body"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
 	reqBody := requestBody{}
-	err := decoder.Decode(&reqBody)
+	err = decoder.Decode(&reqBody)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong.")
 		return
 	}
+
 	if len(reqBody.Body) > 140 {
-		respondWithError(w, http.StatusBadRequest, "Chirp is too long")
+		respondWithError(w, http.StatusBadRequest, "Chirp is too long.")
 		return
 	}
 	censureMsg := censureWords(reqBody.Body)
 
 	chirpParam := database.CreateChirpParams{
-		UserID: reqBody.UserID,
+		UserID: userID,
 		Body:   censureMsg,
 	}
 	chirp, err := cfg.dbQueries.CreateChirp(r.Context(), chirpParam)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong.")
 		return
 	}
 
