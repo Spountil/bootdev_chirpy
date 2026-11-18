@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -84,6 +85,7 @@ func (cfg *apiConfig) handlerChirps(w http.ResponseWriter, r *http.Request) {
 
 func (cfg *apiConfig) handlerGetAllChirps(w http.ResponseWriter, r *http.Request) {
 	paramAuthorID := r.URL.Query().Get("author_id")
+	paramSort := r.URL.Query().Get("sort")
 	ctx := context.Background()
 
 	chirps := []database.Chirp{}
@@ -115,6 +117,12 @@ func (cfg *apiConfig) handlerGetAllChirps(w http.ResponseWriter, r *http.Request
 			UpdatedAt: chirp.UpdatedAt,
 			Body:      chirp.Body,
 			UserID:    chirp.UserID,
+		})
+	}
+
+	if paramSort == "desc" {
+		sort.Slice(resChirps, func(i, j int) bool {
+			return resChirps[i].CreatedAt.After(resChirps[j].CreatedAt)
 		})
 	}
 
