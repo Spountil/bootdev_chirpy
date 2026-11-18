@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bootdev_chirpy/internal/auth"
 	"bootdev_chirpy/internal/database"
 	"context"
 	"encoding/json"
@@ -39,15 +38,8 @@ func censureWords(msg string) (censuredMsg string) {
 }
 
 func (cfg *apiConfig) handlerChirps(w http.ResponseWriter, r *http.Request) {
-	token, err := auth.GetBearerToken(r.Header)
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Token missing in the Headers.")
-		return
-	}
-
-	userID, err := auth.ValidateJWT(token, cfg.token)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, fmt.Sprintf("Could not validate the token. got err: %v", err))
+	userID := cfg.authorization(w, r.Header)
+	if userID == uuid.Nil {
 		return
 	}
 
@@ -57,7 +49,7 @@ func (cfg *apiConfig) handlerChirps(w http.ResponseWriter, r *http.Request) {
 
 	decoder := json.NewDecoder(r.Body)
 	reqBody := requestBody{}
-	err = decoder.Decode(&reqBody)
+	err := decoder.Decode(&reqBody)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Something went wrong.")
 		return
@@ -91,11 +83,28 @@ func (cfg *apiConfig) handlerChirps(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *apiConfig) handlerGetAllChirps(w http.ResponseWriter, r *http.Request) {
+	paramAuthorID := r.URL.Query().Get("author_id")
 	ctx := context.Background()
-	chirps, err := cfg.dbQueries.GetAllChrips(ctx)
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
-		return
+
+	chirps := []database.Chirp{}
+	var err error
+	if paramAuthorID != "" {
+		paramAuthorIDParsed, err := uuid.Parse(paramAuthorID)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+			return
+		}
+		chirps, err = cfg.dbQueries.GetChripsByAuthor(ctx, paramAuthorIDParsed)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+			return
+		}
+	} else {
+		chirps, err = cfg.dbQueries.GetAllChrips(ctx)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+			return
+		}
 	}
 
 	resChirps := []Chirp{}
@@ -130,4 +139,36 @@ func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 		Body:      chirp.Body,
 		UserID:    chirp.UserID,
 	})
+}
+
+func (cfg *apiConfig) handlerDelChirps(w http.ResponseWriter, r *http.Request) {
+	userID := cfg.authorization(w, r.Header)
+	if userID == uuid.Nil {
+		return
+	}
+
+	chirpID, err := uuid.Parse(r.PathValue("chirpID"))
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Chirp ID not formatted correctly")
+		return
+	}
+
+	chirpInfo, err := cfg.dbQueries.GetChirp(r.Context(), chirpID)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, fmt.Sprintf("Can't find Chirp. Got err: %v", err))
+		return
+	}
+
+	if userID != chirpInfo.UserID {
+		respondWithError(w, http.StatusForbidden, "")
+		return
+	}
+
+	err = cfg.dbQueries.DelChirp(r.Context(), chirpID)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, fmt.Sprintf("Could not find Chirp to delete. Got err: %v", err))
+		return
+	}
+
+	respondWithJSON(w, http.StatusNoContent, "")
 }

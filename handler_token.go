@@ -40,5 +40,21 @@ func (cfg *apiConfig) handlerRefresh(w http.ResponseWriter, r *http.Request) {
 		Token: token,
 	}
 
-	respondWithJSON(w, http.StatusAccepted, resBody)
+	respondWithJSON(w, http.StatusOK, resBody)
+}
+
+func (cfg *apiConfig) handlerRevoke(w http.ResponseWriter, r *http.Request) {
+	refreshToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Not able to extract the refresh token. Got error: %v", err))
+		return
+	}
+
+	err = cfg.dbQueries.RevokeRefreshToken(r.Context(), refreshToken)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Not able to revoke refresh token. Got error: %v", err))
+		return
+	}
+
+	respondWithJSON(w, http.StatusNoContent, "")
 }

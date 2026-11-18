@@ -59,3 +59,15 @@ func GetBearerToken(headers http.Header) (string, error) {
 
 	return authInfoCleaned, nil
 }
+
+func GetAPIKey(headers http.Header) (string, error) {
+	authInfo := headers.Get("Authorization")
+	if authInfo == "" {
+		return "", fmt.Errorf("Authorization not found.")
+	}
+
+	authAPIKey := strings.ReplaceAll(authInfo, "ApiKey", "")
+	authAPIKeyCleaned := strings.ReplaceAll(authAPIKey, " ", "")
+
+	return authAPIKeyCleaned, nil
+}
